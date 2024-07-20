@@ -83,7 +83,7 @@ class Employees(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name=db.Column(db.String(100))
     
-# Define the Employees class
+# Define the Contactus class
 class Contactus(db.Model):
     __tablename__ = 'contactus'
     id = db.Column(db.Integer, primary_key=True)
@@ -92,7 +92,21 @@ class Contactus(db.Model):
     phone=db.Column(db.BigInteger)
     message=db.Column(db.String(100))
     
+# Define the Comment model
+class Comments(db.Model):
+    __tablename__ = 'comments'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    text = db.Column(db.String(255), nullable=False)
+    replies = db.relationship('Reply', backref='comment', lazy=True, cascade="all, delete-orphan")
 
+# Define the Reply model
+class Reply(db.Model):
+    __tablename__ = 'replies'
+    id = db.Column(db.Integer, primary_key=True)
+    comment_id = db.Column(db.Integer, db.ForeignKey('comments.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    text = db.Column(db.String(255), nullable=False)
     
 # Set up the database engine
 engine = create_engine(f'mysql+pymysql://{db_username}:{db_password}@{host_address}:{port}/{db_name}')
@@ -283,6 +297,42 @@ def get_contactus():
 
     return jsonify(results), 200
 
+
+# Define the route for the POST request to add comments and replies
+@app.route('/comments', methods=['POST'])
+def add_comments():
+    data = request.get_json()
+    new_reply = Reply(
+        comment_id=data['id'],
+        name=data['name'],
+        text=data['text']
+    )
+    db.session.add(new_reply)
+    db.session.commit()
+    return jsonify({"message": "Replies added successfully!"}), 201
+
+# Define the route for the GET request to fetch comments and replies
+@app.route('/comments', methods=['GET'])
+def get_comments():
+    comments = Comments.query.all()
+    results = []
+    for comment in comments:
+        replies = Reply.query.filter_by(comment_id=comment.id).all()
+        replies_list = [
+            {
+                "id": reply.id,
+                "name": reply.name,
+                "text": reply.text
+            } for reply in replies]
+        
+        results.append({
+            "id": comment.id,
+            "name": comment.name,
+            "text": comment.text,
+            "replies": replies_list
+        })
+
+    return jsonify(results), 200
 
 
 ####################################################### main driver function#########################################################################################################
